@@ -10,16 +10,135 @@ Platform
 --------
 
 * Windows XP
-* Windows Server 2003
 * Windows Vista
+* Windows Server 2003 R2
 * Windows 7
 * Windows Server 2008 (R1, R2)
+
+Cookbooks
+---------
+
+* chef_handler (`windows::reboot_handler` leverages the chef_handler LWRP)
+
+Attributes
+==========
+
+* `node['windows']['allow_pending_reboots']` - used to configure the `WindowsRebootHandler` (via the `windows::reboot_handler` recipe) to act on pending reboots. default is true (ie act on pending reboots).  The value of this attribute only has an effect if the `windows::reboot_handler` is in a node's run list.
 
 Resource/Provider
 =================
 
-`windows_package`
------------------
+windows\_auto\_run
+------------------
+
+### Actions
+- :create: Create an item to be run at login
+- :remove: Remove an item that was previously setup to run at login
+
+### Attribute Parameters
+- :name: Name attribute. The name of the value to be stored in the registry
+- :program: The program to be run at login
+- :args: The arguments for the program
+
+### Examples
+
+  # Run BGInfo at login
+  windows_auto_run 'BGINFO' do
+    program "C:/Sysinternals/bginfo.exe"
+    args "\"C:/Sysinternals/Config.bgi\" /NOLICPROMPT /TIMER:0"
+    not_if { Registry.value_exists?(AUTO_RUN_KEY, 'BGINFO') }
+    action :create
+  end
+
+
+windows\_batch
+--------------
+Execute a batch script using the cmd.exe interpreter (much like the script resources for bash, csh, powershell, perl, python and ruby). A temporary file is created and executed like other script resources, rather than run inline. By their nature, Script resources are not idempotent, as they are completely up to the user's imagination. Use the `not_if` or `only_if` meta parameters to guard the resource for idempotence.
+
+### Actions
+
+- :run: run the batch file
+
+### Attribute Parameters
+
+- command: name attribute. Name of the command to execute.
+- code: quoted string of code to execute.
+- creates: a file this command creates - if the file exists, the command will not be run.
+- cwd: current working directory to run the command from.
+- flags: command line flags to pass to the interpreter when invoking.
+- user: A user name or user ID that we should change to before running this command.
+- group: A group name or group ID that we should change to before running this command.
+
+### Examples
+
+    windows_batch "unzip_and_move_ruby" do
+      code <<-EOH
+      7z.exe x #{Chef::Config[:file_cache_path]}/ruby-1.8.7-p352-i386-mingw32.7z  -oC:\\source -r -y
+      xcopy C:\\source\\ruby-1.8.7-p352-i386-mingw32 C:\\ruby /e /y
+      EOH
+    end
+
+    windows_batch "echo some env vars" do
+      code <<-EOH
+      echo %TEMP%
+      echo %SYSTEMDRIVE%
+      echo %PATH%
+      echo %WINDIR%
+      EOH
+    end
+
+
+windows\_feature
+----------------
+
+Windows Roles and Features can be thought of as built-in operating system packages that ship with the OS.  A server role is a set of software programs that, when they are installed and properly configured, lets a computer perform a specific function for multiple users or other computers within a network.  A Role can have multiple Role Services that provide functionality to the Role.  Role services are software programs that provide the functionality of a role. Features are software programs that, although they are not directly parts of roles, can support or augment the functionality of one or more roles, or improve the functionality of the server, regardless of which roles are installed.  Collectively we refer to all of these attributes as 'features'.
+
+This resource allows you to manage these 'features' in an unattended, idempotent way.
+
+There are two providers for the `windows_features` which map into Microsoft's two major tools for managing roles/features: [Deployment Image Servicing and Management (DISM)](http://msdn.microsoft.com/en-us/library/dd371719(v=vs.85).aspx) and [Servermanagercmd](http://technet.microsoft.com/en-us/library/ee344834(WS.10).aspx) (The CLI for Server Manager).  As Servermanagercmd is deprecated, Chef will set the default provider to `Chef::Provider::WindowsFeature::DISM` if DISM is present on the system being configured.  The default provider will fall back to `Chef::Provider::WindowsFeature::ServerManagerCmd`.
+
+For more information on Roles, Role Services and Features see the [Microsoft TechNet article on the topic](http://technet.microsoft.com/en-us/library/cc754923.aspx).  For a complete list of all features that are available on a node type either of the following commands at a command prompt:
+
+    dism /online /Get-Features
+    servermanagercmd -query
+
+### Actions
+
+- :install: install a Windows role/feature
+- :remove: remove a Windows role/feature
+
+### Attribute Parameters
+
+- feature_name: name of the feature/role to install.  The same feature may have different names depending on the provider used (ie DHCPServer vs DHCP; DNS-Server-Full-Role vs DNS).
+
+### Providers
+
+- **Chef::Provider::WindowsFeature::DISM**: Uses Deployment Image Servicing and Management (DISM) to manage roles/features.
+- **Chef::Provider::WindowsFeature::ServerManagerCmd**: Uses Server Manager to manage roles/features.
+
+### Examples
+
+    # enable the node as a DHCP Server
+    windows_feature "DHCPServer" do
+      action :install
+    end
+
+    # enable TFTP
+    windows_feature "TFTP" do
+      action :install
+    end
+
+    # disable Telnet client/server
+    %w{ TelnetServer TelnetClient }.each do |feature|
+      windows_feature feature do
+        action :remove
+      end
+    end
+
+    #
+
+windows\_package
+----------------
 
 Manage Windows application packages in an unattended, idempotent way.
 
@@ -33,7 +152,7 @@ The following application installers are currently supported:
 
 If the proper installer type is not passed into the resource's installer_type attribute, the provider will do it's best to identify the type by introspecting the installation package.  If the installation type cannot be properly identified the `:custom` value can be passed into the installer_type attribute along with the proper flags for silent/quiet installation (using the `options` attribute..see example below).
 
-__PLEASE NOTE__ - the resource's `package_name` should be the same as the 'DisplayName' registry value in the uninstallation data that is created during package installation.  The easiest way to definitively find the proper 'DisplayName' value is to install the package on a machine and search for the uninstall information under the following registry keys:
+__PLEASE NOTE__ - For proper idempotence the resource's `package_name` should be the same as the 'DisplayName' registry value in the uninstallation data that is created during package installation.  The easiest way to definitively find the proper 'DisplayName' value is to install the package on a machine and search for the uninstall information under the following registry keys:
 
 * `HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall`
 * `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall`
@@ -51,6 +170,7 @@ For maximum flexibility the `source` attribute supports both remote and local in
 - package_name: name attribute. The 'DisplayName' of the application installation package.
 - source: The source of the windows installer.  This can either be a URI or a local path.
 - installer_type: They type of windows installation package. valid values are: :msi, :inno, :nsis, :wise, :installshield, :custom.  If this value is not provided, the provider will do it's best to identify the installer type through introspection of the file.
+- checksum: useful if source is remote, the SHA-256 checksum of the file--if the local file matches the checksum, Chef will not download it
 - options: Additional options to pass the underlying installation command
 
 ### Examples
@@ -61,51 +181,81 @@ For maximum flexibility the `source` attribute supports both remote and local in
       installer_type :inno
       action :install
     end
-    
+
     # install 7-Zip (MSI installer)
     windows_package "7-Zip 9.20 (x64 edition)" do
       source "http://downloads.sourceforge.net/sevenzip/7z920-x64.msi"
       action :install
     end
-    
+
     # install Notepad++ (Y U No Emacs?) using a local installer
     windows_package "Notepad++" do
       source "c:/installation_files/npp.5.9.2.Installer.exe"
       action :install
     end
-    
+
     # install VLC for that Xvid (NSIS installer)
     windows_package "VLC media player 1.1.10" do
       source "http://superb-sea2.dl.sourceforge.net/project/vlc/1.1.10/win32/vlc-1.1.10-win32.exe"
       action :install
     end
-    
+
     # install Firefox as custom installer and manually set the silent install flags
     windows_package "Mozilla Firefox 5.0 (x86 en-US)" do
-      source "http://3347-mozilla.voxcdn.com/pub/mozilla.org/firefox/releases/5.0/win32/en-US/Firefox%20Setup%205.0.exe"
+      source "http://archive.mozilla.org/pub/mozilla.org/mozilla.org/firefox/releases/5.0/win32/en-US/Firefox%20Setup%205.0.exe"
       options "-ms"
       installer_type :custom
       action :install
     end
-    
+
     # Google Chrome FTW (MSI installer)
     windows_package "Google Chrome" do
       source "https://dl-ssl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B806F36C0-CB54-4A84-A3F3-0CF8A86575E0%7D%26lang%3Den%26browser%3D3%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dfalse/edgedl/chrome/install/GoogleChromeStandaloneEnterprise.msi"
       action :install
     end
-    
+
     # remove Google Chrome (but why??)
     windows_package "Google Chrome" do
       action :remove
     end
-    
+
     # remove 7-Zip
     windows_package "7-Zip 9.20 (x64 edition)" do
       action :remove
     end
-    
 
-`windows_registry`
+
+windows\_reboot
+---------------
+
+Sets required data in the node's run_state to notify `WindowsRebootHandler` a reboot is requested.  If Chef run completes successfully a reboot will occur if the `WindowsRebootHandler` is properly registered as a report handler.  As an action of `:request` will cause a node to reboot every Chef run, this resource is usually notified by other resources...ie restart node after a package is installed (see example below).
+
+### Actions
+- :request: requests a reboot at completion of successful Cher run.  requires `WindowsRebootHandler` to be registered as a report handler.
+- :cancel: remove reboot request from node.run_state.  this will cancel *ALL* previously requested reboots as this is a binary state.
+
+### Attribute Parameters
+- :timeout: Name attribute. timeout delay in seconds to wait before proceeding with the requested reboot. default is 60 seconds
+- :reason: comment on the reason for the reboot. default is 'Opscode Chef initiated reboot'
+
+### Examples
+
+    # if the package installs, schedule a reboot at end of chef run
+    windows_reboot 60 do
+      reason 'cause chef said so'
+      action :nothing
+    end
+    windows_package 'some_package' do
+      action :install
+      notifies :request, 'windows_reboot[60]'
+    end
+
+    # cancel the previously requested reboot
+    windows_reboot 60 do
+      action :cancel
+    end
+
+windows\_registry
 -----------------
 
 Creates and modifies Windows registry keys.
@@ -114,11 +264,14 @@ Creates and modifies Windows registry keys.
 
 - :create: create a new registry key with the provided values.
 - :modify: modify an existing registry key with the provided values.
+- :force_modify: modify an existing registry key with the provided values.  ensures the value is actually set by checking multiple times. useful for fighting race conditions where two processes are trying to set the same registry key.  This will be updated in the near future to use 'RegNotifyChangeKeyValue' which is exposed by the WinAPI and allows a process to register for notification on a registry key change.
+- :remove: removes a value from an existing registry key
 
 ### Attribute Parameters
 
 - key_name: name attribute. The registry key to create/modify.
 - values: hash of the values to set under the registry key. The individual hash items will become respective 'Value name' => 'Value data' items in the registry key.
+- type: Type of key to create, currently only used for :binary to create `REG_BINARY` registry keys. Must be a symbol. See __Roadmap__ for future plans.
 
 ### Examples
 
@@ -133,8 +286,39 @@ Creates and modifies Windows registry keys.
       values 'FdenyTSConnections' => 0
     end
 
-`windows_zipfile`
------------------
+    # Delete an item from the registry
+    windows_registry 'HKCU\Software\Test' do
+      #Key is the name of the value that you want to delete the value is always empty
+      values 'ValueToDelete' => ''
+      action :remove
+    end
+
+### Library Methods
+
+    Registry.value_exists?('HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run','BGINFO')
+    Registry.key_exists?('HKLM\SOFTWARE\Microsoft')
+    BgInfo = Registry.get_value('HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run','BGINFO')
+
+
+windows\_path
+-------------
+
+### Actions
+- :add: Add an item to the system path
+
+### Attribute Parameters
+- :path: Name attribute. The name of the value to add to the system path
+
+### Examples
+
+    #Add Sysinternals to the system path
+    windows_path 'C:\Sysinternals' do
+      action :add
+    end
+
+
+windows\_zipfile
+----------------
 
 Most version of Windows do not ship with native cli utility for managing compressed files.  This resource provides a pure-ruby implementation for managing zip files. Be sure to use the `not_if` or `only_if` meta parameters to guard the resource for idempotence or action will be taken on the zip file every Chef run.
 
@@ -156,7 +340,7 @@ Most version of Windows do not ship with native cli utility for managing compres
       action :unzip
       not_if {::File.exists?("c:/bin/PsExec.exe")}
     end
-    
+
     # unzip a local zipfile
     windows_zipfile "c:/the_codez" do
       source "c:/foo/baz/the_codez.zip"
@@ -164,36 +348,57 @@ Most version of Windows do not ship with native cli utility for managing compres
     end
 
 
+Exception/Report Handlers
+=========================
+
+WindowsRebootHandler
+--------------------
+
+Required reboots are a necessary evil of configuring and managing Windows nodes.  This report handler (ie fires at the end of successful Chef runs) acts on requested (Chef initiated) or pending (as determined by the OS per configuration action we performed) reboots.  The `allow_pending_reboots` initialization argument should be set to false if you do not want the handler to automatically reboot a node if it has been determined a reboot is pending.  Reboots can still be requested explicitly via the `windows_reboot` LWRP.
+
+## Initialization Arguments
+
+- `allow_pending_reboots`: indicator on whether the handler should act on a the Window's 'pending reboot' state. default is true
+- `timeout`: timeout delay in seconds to wait before proceeding with the reboot. default is 60 seconds
+- `reason`:  comment on the reason for the reboot. default is 'Opscode Chef initiated reboot'
+
 Usage
 =====
 
-Just place an explicit dependency on this cookbook (using depends in the cookbook's metadata.rb) from any cookbook where you would like to use these Windows-specific resources.
+Just place an explicit dependency on this cookbook (using depends in the cookbook's metadata.rb) from any cookbook where you would like to use the Windows-specific resources/providers that ship with this cookbook.
 
-Changes/Roadmap
-===============
+default
+-------
 
-## Future
+Convenience recipe that installs supporting gems for many of the resources/providers that ship with this cookbook.
 
-* package preseeding/response_file support
-* package installation location via a `target_dir` attribute.
-* [COOK-666] windows_package should support CoApp packages
+reboot\_handler
+--------------
 
-## v1.0.2:
+Leverages the `chef_handler` LWRP to register the `WindowsRebootHandler` report handler that ships as part of this cookbook. By default this handler is set to automatically act on pending reboots.  If you would like to change this behavior override `node['windows']['allow_pending_reboots']` and set the value to false.  For example:
 
-* [COOK-647] account for Wow6432Node registry redirecter
-* [COOK-656] begin/rescue on win32/registry
+    % cat roles/base.rb
+    name "base"
+    description "base role"
+    override_attributes(
+      "windows" => {
+        "allow_pending_reboots" => false
+      }
+    )
 
-## 1.0.0:
-
-* [COOK-612] initial release
+This will still allow a reboot to be explicitly requested via the `windows_reboot` LWRP.
 
 License and Author
 ==================
 
 Author:: Seth Chisamore (<schisamo@opscode.com>)
 Author:: Doug MacEachern (<dougm@vmware.com>)
+Author:: Paul Morton (<pmorton@biaprotect.com>)
 
 Copyright:: 2011, Opscode, Inc.
+Copyright:: 2010, VMware, Inc.
+Copyright:: 2011, Business Intelligence Associates, Inc
+
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

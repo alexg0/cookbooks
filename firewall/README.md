@@ -4,8 +4,8 @@ Description
 Provides a set of primitives for managing firewalls and associated rules.
 
 PLEASE NOTE - The resource/providers in this cookbook are under heavy development.
-An attempt is being made to keep the resource simple/stupid by starting with less 
-sophisticated firewall implementations first and refactor/vet the resource definition 
+An attempt is being made to keep the resource simple/stupid by starting with less
+sophisticated firewall implementations first and refactor/vet the resource definition
 with each successive provider.
 
 Requirements
@@ -35,16 +35,23 @@ Resources/Providers
 ### Attribute Parameters
 
 - name: name attribute. arbitrary name to uniquely identify this resource
+- log_level: level of verbosity the firewall should log at. valid values are: :low, :medium, :high, :full. default is :low.
 
 ### Providers
 
-- `Chef::Provider::Firewall::Ufw`
+- `Chef::Provider::FirewallUfw`
     - platform default: Ubuntu
 
 ### Examples
-    
+
     # enable platform default firewall
     firewall "ufw" do
+      action :enable
+    end
+
+    # increase logging past default of 'low'
+    firewall "debug firewalls" do
+      log_level :high
       action :enable
     end
 
@@ -54,20 +61,25 @@ Resources/Providers
 ### Actions
 
 - :allow: the rule should allow incoming traffic.
-- :deny: the rule should deny incoming traffic
+- :deny: the rule should deny incoming traffic.
+- :reject: the rule should reject incoming traffic.
 
 ### Attribute Parameters
 
 - name: name attribute. arbitrary name to uniquely identify this firewall rule
 - protocol: valid values are: :udp, :tcp. default is all protocols
-- port: port number.
-- source: ip address or subnet incoming traffic originates from. default is `0.0.0.0/0` (ie Anywhere)
-- destination: ip address or subnet traffic routing to
+- port: incoming port number (ie. 22 to allow inbound SSH)
+- source: ip address or subnet to filter on incoming traffic. default is `0.0.0.0/0` (ie Anywhere)
+- destination: ip address or subnet to filter on outgoing traffic.
+- dest_port: outgoing port number.
 - position: position to insert rule at. if not provided rule is inserted at the end of the rule list.
+- direction: direction of the rule. valid values are: :in, :out, default is :in
+- interface: interface to apply rule (ie. 'eth0').
+- logging: may be added to enable logging for a particular rule. valid values are: :connections, :packets. In the ufw provider, :connections logs new connections while :packets logs all packets.
 
 ### Providers
 
-- `Chef::Provider::FirewallRule::Ufw`
+- `Chef::Provider::FirewallRuleUfw`
     - platform default: Ubuntu
 
 ### Examples
@@ -78,39 +90,27 @@ Resources/Providers
       action :allow
       notifies :enable, "firewall[ufw]"
     end
-    
-    # open standard http port to tcp traffic only; insert as first rule; enable firewall
+
+    # open standard http port to tcp traffic only; insert as first rule
     firewall_rule "http" do
       port 80
       protocol :tcp
       position 1
       action :allow
-      notifies :enable, "firewall[ufw]"
     end
-    
+
+    # restrict port 13579 to 10.0.111.0/24 on eth0
+    firewall_rule "myapplication" do
+      port 13579
+      source '10.0.111.0/24'
+      direction 'in'
+      interface 'eth0'
+      action :allow
+    end
+
     firewall "ufw" do
       action :nothing
     end
-
-Changes/Roadmap
-===============
-
-## Future
-
-* [COOK-688] create iptables providers for all resources
-* [COOK-689] create windows firewall providers for all resources
-* [COOK-690] create firewall_chain resource
-* [COOK-693] create pf firewall providers for all resources
-
-## 0.5.2
-
-* add missing 'requires' statements. fixes 'NameError: uninitialized constant' error.  
-thanks to Ernad Husremović for the fix.
-
-## 0.5.0
-
-* [COOK-686] create firewall and firewall_rule resources
-* [COOK-687] create UFW providers for all resources
 
 License and Author
 ==================

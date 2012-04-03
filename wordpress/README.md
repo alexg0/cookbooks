@@ -3,17 +3,6 @@ Description
 
 Installs and configures Wordpress according to the instructions at http://codex.wordpress.org/Installing_WordPress. Does not set up a wordpress blog. You will need to do this manually by going to http://hostname/wp-admin/install.php (this URL may be different if you change the attribute values).
 
-Changes
-=======
-
-### v0.8.2:
-
-* [COOK-435] Don't set the mysql root user password in wordpress cookbook
-* [COOK-535] - recursively create the directory
-* RHEL/CentOS/Fedora support (yeah!)
-* cleaned up node attribute keys
-* cleaned up README.md
-
 Requirements
 ============
 
@@ -21,12 +10,10 @@ Platform
 --------
 
 * Debian, Ubuntu
-* RHEL, CentOS, Fedora
 
 Tested on:
 
 * Ubuntu 9.04, 9.10, 10.04
-* Centos 5.5
 
 Cookbooks
 ---------
@@ -45,6 +32,7 @@ Attributes
 * `node['wordpress']['db']['database']` - Wordpress will use this MySQL database to store its data.
 * `node['wordpress']['db']['user']` - Wordpress will connect to MySQL using this user.
 * `node['wordpress']['db']['password']` - Password for the Wordpress MySQL user. The default is a randomly generated string.
+* `node['wordpress']['server_aliases']` - Array of ServerAliases used in apache vhost. Default is `node['fqdn']`.
 
 Attributes will probably never need to change (these all default to randomly generated strings):
 

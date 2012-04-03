@@ -3,14 +3,6 @@ Description
 
 Lightweight resource and provider to install OS X applications (.app) from dmg files.
 
-Changes
-=======
-
-## v0.6.0:
-
-- option to install software that is an .mpkg inside a .dmg
-- ignore failure on chmod in case mode is already set, or is root owned
-
 Requirements
 ============
 

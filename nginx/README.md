@@ -1,24 +1,24 @@
-DESCRIPTION
-====
+Description
+===========
 
 Installs nginx from package OR source code and sets up configuration handling similar to Debian's Apache2 scripts.
 
-REQUIREMENTS
-====
+Requirements
+============
 
 Cookbooks
-----
+---------
 
 * build-essential (for nginx::source)
 * runit (for nginx::source)
 
 Platform
-----
+--------
 
 Debian or Ubuntu though may work where 'build-essential' works, but other platforms are untested.
 
-ATTRIBUTES
-====
+Attributes
+==========
 
 All node attributes are set under the `nginx` namespace.
 
@@ -33,6 +33,7 @@ All node attributes are set under the `nginx` namespace.
 * `worker_processes` - number of workers to spawn.
 * `worker_connections` - number of connections per worker.
 * `server_names_hash_bucket_size`
+* `url` - URL where to download the nginx source tarball
 
 The following attributes are set at the 'normal' node level via the `nginx::source` recipe.
 
@@ -40,8 +41,8 @@ The following attributes are set at the 'normal' node level via the `nginx::sour
 * `src_binary` - for nginx::source, sets the binary location.
 * `configure_flags` - for nginx::source, an array of flags to use for compilation.
 
-USAGE
-====
+Usage
+=====
 
 Provides two ways to install and configure nginx.
 
@@ -54,8 +55,8 @@ There's some redundancy in that the config handling hasn't been separated from t
 
 Some of the attributes mentioned above are only set in the `nginx::source` recipe. They can be overridden by setting them via a role in `override_attributes`.
 
-LICENSE and AUTHOR
-====
+License and Author
+==================
 
 Author:: Joshua Timberman (<joshua@opscode.com>)
 Author:: Adam Jacob (<adam@opscode.com>)
